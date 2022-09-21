@@ -1,33 +1,72 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
+
 const app = express();
-const port = 3000;
 
-app.use(cors());
-app.use(bodyParser.json());
-app.use((request, response, next) => {
-    
-    console.log("1");
-    next();
-});
+let todos = [];
+let ids = 0;
 
-function exampleMiddleware(request, response, next) {
-    console.log("2");
-    next();
+class Todo {
+    constructor(description) {
+        this.id = ids++;
+        this.description = description;
+        this.completed = false;
+        this.completedDate = null;
+        this.createdDate = new Date();
+    }
 }
 
-app.get('/test', (request, response) => {
-    console.log("3");
-});
+app.use(bodyParser.json());
+app.use(cors());
 
-app.post('/banan', exampleMiddleware, (request, response) => {
-    console.log("3");
-    response.json({
-        greeting: "Hello"
-    });
-});
+function getTodos(request, response) {
+    response.json(todos);
+}
 
-app.listen(port, () => {
-    console.log("Listening on port " + port);
+function getTodo(request, response) {
+    let id = parseInt(request.params.id);
+    let todo = todos.find(all => all.id === id);
+    response.json(todo);
+}
+
+function createTodo(request, response) {
+    let description = request.body.description;
+
+    let todo = new Todo(description);
+    todos.push(todo);
+
+    response.json(todo);
+}
+
+function deleteTodo(request, response) {
+    let id = parseInt(request.params.id);
+
+    let index = todos.findIndex(all => all.id === id);
+    let todo = todos[index];
+    todos.splice(index, 1);
+
+    response.json(todo);
+}
+
+function handleCompleted(request, response) {
+    let id = parseInt(request.params.id);
+    let completed = request.body.completed;
+    let completedDate = request.body.completedDate;
+
+    let todo = todos.find(all => all.id === id);
+    todo.completed = completed;
+    todo.completedDate = completedDate;
+
+    response.json(todo);
+}
+
+app.get('/todos', getTodos);
+app.get('/todo/:id', getTodo);
+app.put('/todo', createTodo);
+app.delete('/todo/:id', deleteTodo);
+app.post('/todo/:id', handleCompleted);
+
+app.listen(8000, () => {
+    console.log("Listening on port 8000.");
 });
