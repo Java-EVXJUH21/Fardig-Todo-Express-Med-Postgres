@@ -1,64 +1,62 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const Todo = require('./data');
+const db = require('./db');
 
 const app = express();
 
-let todos = [];
-let ids = 0;
-
-class Todo {
-    constructor(description) {
-        this.id = ids++;
-        this.description = description;
-        this.completed = false;
-        this.completedDate = null;
-        this.createdDate = new Date();
-    }
-}
+app.use(express.static('public'));
 
 app.use(bodyParser.json());
 app.use(cors());
 
-function getTodos(request, response) {
-    response.json(todos);
+async function getTodos(request, response) {
+    const query = "SELECT * FROM todos";
+    let res = await db.pool.query(query);
+    response.json(res.rows.map(Todo.convert));
 }
 
-function getTodo(request, response) {
+async function getTodo(request, response) {
     let id = parseInt(request.params.id);
-    let todo = todos.find(all => all.id === id);
-    response.json(todo);
+    const query = "SELECT * FROM todos WHERE id = $1::INT";
+    const values = [id];
+    let res = await db.pool.query(query, values);
+    response.json(Todo.convert(res.rows[0]));
 }
 
-function createTodo(request, response) {
+async function createTodo(request, response) {
     let description = request.body.description;
 
     let todo = new Todo(description);
-    todos.push(todo);
+    
+    const query = "INSERT INTO todos (description, completed, completedDate, createdDate) VALUES ($1::TEXT, $2::BOOLEAN, $3::TEXT, $4::TEXT)";
+    const values = [todo.description, todo.completed, todo.completedDate, todo.createdDate];
+    let res = await db.pool.query(query, values);
 
     response.json(todo);
 }
 
-function deleteTodo(request, response) {
+async function deleteTodo(request, response) {
     let id = parseInt(request.params.id);
 
-    let index = todos.findIndex(all => all.id === id);
-    let todo = todos[index];
-    todos.splice(index, 1);
+    const query = "DELETE FROM todos WHERE id = $1::INT";
+    const values = [id];
+    let res = await db.pool.query(query, values);
 
-    response.json(todo);
+    response.json({ success: true, deletedCount: res.rowCount });
 }
 
-function handleCompleted(request, response) {
+async function handleCompleted(request, response) {
     let id = parseInt(request.params.id);
     let completed = request.body.completed;
     let completedDate = request.body.completedDate;
 
-    let todo = todos.find(all => all.id === id);
-    todo.completed = completed;
-    todo.completedDate = completedDate;
+    const query = "UPDATE todos SET completed = $1::BOOLEAN, completedDate = $2::TEXT WHERE id = $3::INT";
+    const values = [completed, completedDate, id];
+    let res = await db.pool.query(query, values);
 
-    response.json(todo);
+    await getTodo(request, response);
 }
 
 app.get('/todos', getTodos);
